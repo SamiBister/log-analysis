@@ -16,4 +16,5 @@ regexes = [
 # Files that intentionally contain credential-shaped strings
 paths = [
   '''.gitleaks\.toml''',
+  '''tests/test_redact\.py''',
 ]
