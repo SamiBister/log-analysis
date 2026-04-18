@@ -1,0 +1,41 @@
+name: Publish Docs to Confluence
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+  workflow_dispatch: # Allows manual trigger
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    env:
+      OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install 1Password CLI
+        uses: 1password/install-cli-action@v2
+
+      - name: Read Confluence credentials from 1Password
+        shell: bash
+        run: |
+          echo "CONFLUENCE_URL=$(op read 'op://orangit-documenter/confluence-credentials/url')" >> "$GITHUB_ENV"
+          echo "CONFLUENCE_USER=$(op read 'op://orangit-documenter/confluence-credentials/username')" >> "$GITHUB_ENV"
+          echo "CONFLUENCE_API_TOKEN=$(op read 'op://orangit-documenter/confluence-credentials/token')" >> "$GITHUB_ENV"
+
+      - name: Publish to Confluence
+        uses: ./.github/actions/publish-to-confluence
+        with:
+          confluence-url: ${{ env.CONFLUENCE_URL }}
+          confluence-user: ${{ env.CONFLUENCE_USER }}
+          confluence-token: ${{ env.CONFLUENCE_API_TOKEN }}
+          space-key: "GHTEMP"
+          confluence-prefix: ""
+          docs-path: "docs"
+          root-page-title: "Template Knowledge base Documentation"

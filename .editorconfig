@@ -1,0 +1,43 @@
+root = true
+
+# Default: all files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# TypeScript / JavaScript (Node)
+[*.{ts,tsx,js,jsx,mjs,cjs,mts,cts}]
+indent_style = space
+indent_size = 2
+
+# Python
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 88
+
+# YAML
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# Markdown
+[*.{md,mdx}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false
+max_line_length = off
+
+# JSON / JSONC
+[*.{json,jsonc}]
+indent_style = space
+indent_size = 2
+
+# Package manager lock files — leave as-is
+[{package-lock.json,yarn.lock,pnpm-lock.yaml}]
+indent_style = unset
+indent_size = unset
+insert_final_newline = unset
+trim_trailing_whitespace = unset

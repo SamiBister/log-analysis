@@ -1,0 +1,31 @@
+# OrangIT Agents
+
+This file defines all OrangIT agents for Codex.
+
+{% for agent in agents %}
+---
+
+## {{ agent.identity.name }}: {{ agent.identity.role }}
+
+{{ agent.description }}
+### Instructions
+
+{{ agent.instructions }}
+{% if agent.subagents %}
+### Subagents
+
+{% for sa in agent.subagents %}
+- {{ sa }}
+{% endfor %}
+{% endif %}
+{% if agent.workflow %}
+### Workflow
+
+{% for step in agent.workflow %}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{% endif %}
+### Outputs
+
+{{ agent.outputs }}
+{% endfor %}

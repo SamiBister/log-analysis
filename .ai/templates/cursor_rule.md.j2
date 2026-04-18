@@ -1,0 +1,29 @@
+---
+description: {{ identity.role }}
+globs:
+alwaysApply: false
+---
+
+# {{ identity.name }}: {{ identity.role }}
+
+{{ description }}
+## Instructions
+
+{{ instructions }}
+{% if subagents %}
+## Subagents
+
+{% for sa in subagents %}
+- {{ sa }}
+{% endfor %}
+{% endif %}
+{% if workflow %}
+## Workflow
+
+{% for step in workflow %}
+{{ loop.index }}. {{ step }}
+{% endfor %}
+{% endif %}
+## Outputs
+
+{{ outputs }}
