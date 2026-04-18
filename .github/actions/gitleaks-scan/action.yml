@@ -115,15 +115,10 @@ runs:
         fi
 
         {
-          echo "## Gitleaks Secret Scan"
+          echo "## Security Scan Results"
           echo ""
-          echo "| Setting | Value |"
-          echo "|---------|-------|"
-          echo "| Version | \`$(gitleaks version)\` |"
-          echo "| Scan path | \`${SCAN_PATH}\` |"
-          echo "| Config | \`${CONFIG_DISPLAY}\` |"
-          echo "| No-git mode | \`${NO_GIT}\` |"
-          echo ""
+          echo "| Tool | Result | Details |"
+          echo "|------|--------|---------|"
         } >> "${GITHUB_STEP_SUMMARY}"
 
         EXIT_CODE=0
@@ -132,7 +127,7 @@ runs:
         if [ "${EXIT_CODE}" -eq 0 ]; then
           echo "result=passed"    >> "${GITHUB_OUTPUT}"
           echo "findings-count=0" >> "${GITHUB_OUTPUT}"
-          echo "No secrets detected." >> "${GITHUB_STEP_SUMMARY}"
+          echo "| gitleaks | ✅ No secrets detected | — |" >> "${GITHUB_STEP_SUMMARY}"
         else
           FINDINGS=0
           if command -v jq >/dev/null 2>&1 && [ -f "${REPORT}" ]; then
@@ -143,7 +138,7 @@ runs:
           echo "findings-count=${FINDINGS}"      >> "${GITHUB_OUTPUT}"
 
           {
-            echo "**${FINDINGS} secret(s) detected.**"
+            echo "| gitleaks | ❌ ${FINDINGS} secret(s) detected | — |"
             echo ""
             echo "<details><summary>Scan output</summary>"
             echo ""

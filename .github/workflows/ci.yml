@@ -79,14 +79,23 @@ jobs:
           uv run ruff check . 2>&1 | tee /tmp/ruff-check.txt
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
-          echo "## Ruff Lint" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Lint Results"
+            echo ""
+            echo "| Tool | Result | Details |"
+            echo "|------|--------|---------|"
+          } >> "$GITHUB_STEP_SUMMARY"
           if [ "${EXIT_CODE}" -eq 0 ]; then
-            echo "All checks passed." >> "$GITHUB_STEP_SUMMARY"
+            echo "| ruff check | ✅ Passed | — |" >> "$GITHUB_STEP_SUMMARY"
           else
+            echo "| ruff check | ❌ Failed | see details below |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "<details><summary>ruff check output</summary>" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             cat /tmp/ruff-check.txt >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "</details>" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
       - name: Run ruff format check
@@ -96,14 +105,17 @@ jobs:
           uv run ruff format --check . 2>&1 | tee /tmp/ruff-format.txt
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
-          echo "## Ruff Format" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${EXIT_CODE}" -eq 0 ]; then
-            echo "All files correctly formatted." >> "$GITHUB_STEP_SUMMARY"
+            echo "| ruff format | ✅ Passed | — |" >> "$GITHUB_STEP_SUMMARY"
           else
+            echo "| ruff format | ❌ Failed | see details below |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "<details><summary>ruff format output</summary>" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             cat /tmp/ruff-format.txt >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "</details>" >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
 
@@ -123,12 +135,32 @@ jobs:
           uv run pytest --cov=src/logscope --cov-fail-under=90 --cov-report=xml --cov-report=term-missing 2>&1 | tee /tmp/pytest-output.txt
           EXIT_CODE=${PIPESTATUS[0]}
           set -e
-          echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          tail -20 /tmp/pytest-output.txt >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          exit ${EXIT_CODE}
+
+          PASSED=$(grep -oP '\d+ passed' /tmp/pytest-output.txt | tail -1 || echo "?")
+          FAILED=$(grep -oP '\d+ failed' /tmp/pytest-output.txt | tail -1 || echo "")
+          COVERAGE=$(grep -oP 'TOTAL\s+\d+\s+\d+\s+\K\d+(?=%)' /tmp/pytest-output.txt | tail -1 || echo "?")
+
+          {
+            echo "## Test Results"
+            echo ""
+            echo "| Tool | Result | Details |"
+            echo "|------|--------|---------|"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "| pytest | ✅ ${PASSED} | coverage: ${COVERAGE}% |" >> "$GITHUB_STEP_SUMMARY"
+          else
+            DETAIL="${FAILED:-unknown failure}"
+            echo "| pytest | ❌ ${DETAIL} | coverage: ${COVERAGE}% |" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "<details><summary>pytest output</summary>" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            tail -40 /tmp/pytest-output.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+            exit ${EXIT_CODE}
+          fi
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:

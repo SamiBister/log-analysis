@@ -19,26 +19,28 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         uv export --format requirements-txt --no-hashes --frozen > /tmp/requirements-audit.txt
-        echo "## pip-audit: exported dependencies" >> "$GITHUB_STEP_SUMMARY"
-        echo '```' >> "$GITHUB_STEP_SUMMARY"
-        cat /tmp/requirements-audit.txt >> "$GITHUB_STEP_SUMMARY"
-        echo '```' >> "$GITHUB_STEP_SUMMARY"
 
     - name: Run pip-audit
       shell: bash
       run: |
-        echo "## pip-audit Vulnerability Scan" >> "$GITHUB_STEP_SUMMARY"
-        echo "" >> "$GITHUB_STEP_SUMMARY"
         set +e
         uv tool run pip-audit -r /tmp/requirements-audit.txt 2>&1 | tee /tmp/pip-audit-output.txt
         EXIT_CODE=${PIPESTATUS[0]}
         set -e
+
+        PKG_COUNT=$(grep -c . /tmp/requirements-audit.txt 2>/dev/null || echo "?")
+
         if [ "${EXIT_CODE}" -eq 0 ]; then
-          echo "No known vulnerabilities found by pip-audit." >> "$GITHUB_STEP_SUMMARY"
+          echo "| pip-audit | ✅ No vulnerabilities | ${PKG_COUNT} packages scanned |" >> "$GITHUB_STEP_SUMMARY"
         else
+          echo "| pip-audit | ❌ Vulnerabilities found | ${PKG_COUNT} packages scanned |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>pip-audit output</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat /tmp/pip-audit-output.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ inputs.fail-on-findings }}" = "true" ]; then
             echo "::error::pip-audit detected known vulnerabilities"
             exit 1

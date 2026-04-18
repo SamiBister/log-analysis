@@ -19,10 +19,6 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       run: |
         uv export --format requirements-txt --no-hashes --frozen > requirements-exported.txt
-        echo "## Exported dependencies" >> "$GITHUB_STEP_SUMMARY"
-        echo '```' >> "$GITHUB_STEP_SUMMARY"
-        cat requirements-exported.txt >> "$GITHUB_STEP_SUMMARY"
-        echo '```' >> "$GITHUB_STEP_SUMMARY"
 
     - name: Install guarddog
       shell: bash
@@ -32,14 +28,24 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       run: |
-        echo "## Guarddog Supply-Chain Scan" >> "$GITHUB_STEP_SUMMARY"
-        echo "" >> "$GITHUB_STEP_SUMMARY"
-        if guarddog pypi verify requirements-exported.txt 2>&1 | tee guarddog-output.txt; then
-          echo "No supply-chain threats detected by guarddog." >> "$GITHUB_STEP_SUMMARY"
+        set +e
+        guarddog pypi verify requirements-exported.txt 2>&1 | tee guarddog-output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+        set -e
+
+        PKG_COUNT=$(grep -c . requirements-exported.txt 2>/dev/null || echo "?")
+
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+          echo "| guarddog | ✅ No supply-chain threats | ${PKG_COUNT} packages scanned |" >> "$GITHUB_STEP_SUMMARY"
         else
+          echo "| guarddog | ❌ Threats detected | ${PKG_COUNT} packages scanned |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>guarddog output</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           cat guarddog-output.txt >> "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ inputs.fail-on-findings }}" = "true" ]; then
             echo "::error::guarddog detected potential supply-chain threats"
             exit 1
