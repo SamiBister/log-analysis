@@ -1,0 +1,96 @@
+# Daily Build
+#
+# Runs the full CI pipeline every night at 02:00 UTC to catch newly published
+# CVEs and supply-chain threats even when no code has changed.
+#
+# Identical pipeline to ci.yml — security → lint+test → vulnerability-scan.
+# Docker jobs are intentionally omitted.
+
+name: Daily Build
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # 1. Security — three parallel scans
+  # ─────────────────────────────────────────────────────────────────────────
+  gitleaks:
+    name: Secret Scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/gitleaks-scan
+        with:
+          fail-on-findings: "true"
+
+  pip-audit:
+    name: Vulnerability Scan (pip-audit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/pip-audit
+        with:
+          working-directory: "."
+          fail-on-findings: "true"
+
+  guarddog:
+    name: Supply Chain Scan (guarddog)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: ./.github/actions/setup-uv
+      - uses: ./.github/actions/guarddog-scan
+        with:
+          working-directory: "."
+          fail-on-findings: "true"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 2. Lint + Test — parallel after security passes
+  # ─────────────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
+    needs: [gitleaks, pip-audit, guarddog]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: ./.github/actions/setup-uv
+      - name: Run ruff check
+        run: uvx ruff check .
+      - name: Run ruff format check
+        run: uvx ruff format --check .
+
+  test:
+    name: Test
+    needs: [gitleaks, pip-audit, guarddog]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: ./.github/actions/setup-uv
+      - name: Install dependencies
+        run: uv sync --frozen --extra dev
+      - name: Run tests
+        run: uv run pytest --cov=src/logscope --cov-fail-under=90
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # 3. Vulnerability scan
+  # ─────────────────────────────────────────────────────────────────────────
+  vulnerability-scan:
+    name: Vulnerability Scan (Syft + Grype)
+    needs: [lint, test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
+      - uses: ./.github/actions/scheduled-test-setup
+      - uses: ./.github/actions/security-scan-code
+        with:
+          directory: "."
+          fail-on-severity: "high"

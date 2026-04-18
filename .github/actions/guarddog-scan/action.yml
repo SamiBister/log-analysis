@@ -1,0 +1,55 @@
+name: "Guarddog Supply-Chain Scan"
+description: >
+  Export the uv lockfile to requirements.txt and run guarddog to detect
+  malicious packages (typosquatting, code injection, exfiltration, etc.)
+  BEFORE any dependency is installed.
+inputs:
+  working-directory:
+    description: "Directory containing pyproject.toml and uv.lock"
+    required: true
+  fail-on-findings:
+    description: "Fail the step if guarddog detects issues (true/false)"
+    required: false
+    default: "true"
+runs:
+  using: "composite"
+  steps:
+    - name: Export uv lockfile to requirements.txt
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        uv export --format requirements-txt --no-hashes --frozen > requirements-exported.txt
+        echo "## Exported dependencies" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        cat requirements-exported.txt >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Install guarddog
+      shell: bash
+      run: pipx install guarddog
+
+    - name: Run guarddog verify
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "## Guarddog Supply-Chain Scan" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        if guarddog pypi verify requirements-exported.txt 2>&1 | tee guarddog-output.txt; then
+          echo "No supply-chain threats detected by guarddog." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat guarddog-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.fail-on-findings }}" = "true" ]; then
+            echo "::error::guarddog detected potential supply-chain threats"
+            exit 1
+          else
+            echo "::warning::guarddog detected potential supply-chain threats (non-blocking)"
+          fi
+        fi
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: rm -f requirements-exported.txt guarddog-output.txt

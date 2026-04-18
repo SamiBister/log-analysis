@@ -1,0 +1,24 @@
+name: Security Scan for codebase
+description: Generate SBOM with Syft and run security scan with Grype
+inputs:
+  directory:
+    description: 'The directory to scan'
+    required: true
+  fail-on-severity:
+    description: 'Fail on vulnerabilities of this severity or higher (critical, high, medium, low, negligible)'
+    required: false
+    default: 'high'
+runs:
+  using: composite
+  steps:
+    - name: Generate SBOM with Syft
+      shell: bash
+      working-directory: ${{ inputs.directory }}
+      run: |
+        syft . -o json > sbom.json
+
+    - name: Run Security Scan with Grype
+      working-directory: ${{ inputs.directory }}
+      shell: bash
+      run: |
+        grype sbom:sbom.json --only-fixed --fail-on ${{ inputs.fail-on-severity }}

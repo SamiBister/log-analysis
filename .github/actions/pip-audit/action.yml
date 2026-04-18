@@ -1,0 +1,53 @@
+name: "pip-audit"
+description: >
+  Export the uv lockfile to requirements.txt and run pip-audit to detect
+  known CVEs in Python dependencies BEFORE any dependency is installed.
+  Requires uv to be installed (call setup-uv before this action).
+inputs:
+  working-directory:
+    description: "Directory containing pyproject.toml and uv.lock"
+    required: true
+  fail-on-findings:
+    description: "Fail the step if pip-audit detects vulnerabilities (true/false)"
+    required: false
+    default: "true"
+runs:
+  using: "composite"
+  steps:
+    - name: Export uv lockfile to requirements.txt
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        uv export --format requirements-txt --no-hashes --frozen > /tmp/requirements-audit.txt
+        echo "## pip-audit: exported dependencies" >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        cat /tmp/requirements-audit.txt >> "$GITHUB_STEP_SUMMARY"
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Run pip-audit
+      shell: bash
+      run: |
+        echo "## pip-audit Vulnerability Scan" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        set +e
+        uv tool run pip-audit -r /tmp/requirements-audit.txt 2>&1 | tee /tmp/pip-audit-output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+        set -e
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+          echo "No known vulnerabilities found by pip-audit." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/pip-audit-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ inputs.fail-on-findings }}" = "true" ]; then
+            echo "::error::pip-audit detected known vulnerabilities"
+            exit 1
+          else
+            echo "::warning::pip-audit detected known vulnerabilities (non-blocking)"
+          fi
+        fi
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: rm -f /tmp/requirements-audit.txt /tmp/pip-audit-output.txt

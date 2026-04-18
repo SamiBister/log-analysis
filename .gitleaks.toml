@@ -1,0 +1,19 @@
+# Gitleaks configuration
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+
+[extend]
+# Extend the default ruleset shipped with gitleaks
+useDefault = true
+
+[allowlist]
+description = "Known safe patterns in this repository"
+
+# Placeholder values used in workflow and config templates
+regexes = [
+  '''~CONFLUENCE_SPACE_KEY~''',
+]
+
+# Files that intentionally contain credential-shaped strings
+paths = [
+  '''.gitleaks\.toml''',
+]

@@ -1,0 +1,18 @@
+name: "Setup uv"
+description: "Install uv v0.11.3 from GitHub releases with SHA-256 verification"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      shell: bash
+      run: |
+        curl -sSfL -o /tmp/uv.tar.gz \
+          "https://github.com/astral-sh/uv/releases/download/0.11.3/uv-x86_64-unknown-linux-gnu.tar.gz"
+        echo "c0f3236f146e55472663cfbcc9be3042a9f1092275bbe3fe2a56a6cbfd3da5ce  /tmp/uv.tar.gz" \
+          | sha256sum -c -
+        tar -xzf /tmp/uv.tar.gz --strip-components=1 -C /usr/local/bin \
+          uv-x86_64-unknown-linux-gnu/uv \
+          uv-x86_64-unknown-linux-gnu/uvx
+        rm /tmp/uv.tar.gz
+        uv --version
