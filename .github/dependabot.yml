@@ -1,7 +1,7 @@
 version: 2
 
 updates:
-  # GitHub Actions
+  # GitHub Actions — keeps actions/checkout and any other action SHAs current
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -11,12 +11,10 @@ updates:
       - "dependencies"
       - "github-actions"
 
-  # Python pip dependencies (used by the publish-to-confluence action)
-  # Dependabot does not support uv natively; requirements.txt is the source of
-  # truth for package versions and is read by uv at install time.
-  # uv itself is installed via pip inside the action (no pinned action to track).
+  # Python dependencies via uv (pyproject.toml + uv.lock)
+  # Dependabot does not support uv natively; pip ecosystem reads pyproject.toml
   - package-ecosystem: "pip"
-    directory: "/.github/actions/publish-to-confluence"
+    directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
