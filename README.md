@@ -9,50 +9,90 @@
 1. [Installation](#installation)
 2. [Prerequisites](#prerequisites)
 3. [Quick Start](#quick-start)
-4. [Multi-Turn Session Model](#multi-turn-session-model)
-5. [CLI Flags](#cli-flags)
-6. [Configuration](#configuration)
-7. [Redaction](#redaction)
-8. [Context Files](#context-files)
-9. [Shell Completions](#shell-completions)
-10. [Updating](#updating)
-11. [Exit Codes](#exit-codes)
+4. [Reading from a File](#reading-from-a-file)
+5. [Piping Logs from a Remote Host via SSH](#piping-logs-from-a-remote-host-via-ssh)
+6. [Multi-Turn Session Model](#multi-turn-session-model)
+7. [CLI Flags](#cli-flags)
+8. [Selecting a Model](#selecting-a-model)
+9. [Configuration](#configuration)
+10. [Redaction](#redaction)
+11. [Context Files](#context-files)
+12. [Shell Completions](#shell-completions)
+13. [Updating](#updating)
+14. [Exit Codes](#exit-codes)
 
 ---
 
 ## Installation
 
-**Install into the current project / virtual environment:**
+### From GitHub (recommended)
+
+Install directly from the public repository without cloning — `uv` fetches and builds everything:
 
 ```bash
-uv sync
+uv tool install "git+https://github.com/SamiBister/log-analysis"
 ```
 
-**Install as a global tool (accessible from anywhere on your PATH):**
-
-```bash
-uv tool install .
-```
-
-After installation verify the binary is available:
+Verify the binary is on your PATH:
 
 ```bash
 logscope --version
+```
+
+To upgrade to the latest commit at any time:
+
+```bash
+uv tool upgrade logscope
+# or reinstall from scratch:
+uv tool install --reinstall "git+https://github.com/SamiBister/log-analysis"
+```
+
+### From a local clone
+
+```bash
+git clone https://github.com/SamiBister/log-analysis
+cd log-analysis
+uv tool install .
+```
+
+### Into a project virtual environment
+
+```bash
+uv sync
 ```
 
 ---
 
 ## Prerequisites
 
-### 1. GitHub Copilot authentication
+### 1. Install the `gh` CLI
 
-logscope communicates with GitHub Copilot via the `gh` CLI. You must be authenticated before running any analysis:
+logscope communicates with GitHub Copilot via the [`gh` CLI](https://cli.github.com). Install it first if it is not already present:
+
+| Platform | Command |
+|---|---|
+| macOS | `brew install gh` |
+| Ubuntu / Debian | `sudo apt install gh` |
+| Windows | `winget install GitHub.cli` |
+| Other | See [cli.github.com/manual/installation](https://cli.github.com/manual/installation) |
+
+### 2. Authenticate `gh` with Copilot scope
+
+Run the login flow and **make sure to include the `copilot` scope**:
 
 ```bash
 gh auth login
 ```
 
-Confirm access with:
+The interactive prompts will ask:
+1. **Where do you use GitHub?** → `GitHub.com`
+2. **Preferred protocol?** → `HTTPS` (or `SSH` — both work)
+3. **How would you like to authenticate?** → `Login with a web browser` (or paste a token)
+4. If using a token: generate one at <https://github.com/settings/tokens> and tick the **`copilot`** scope.
+
+Without the `copilot` scope logscope exits with code `3` (authentication error).
+
+Confirm the session is active:
 
 ```bash
 gh auth status
@@ -97,6 +137,68 @@ cat service.log | logscope \
 
 ---
 
+## Reading from a File
+
+Use `--file` to read a log directly from disk instead of piping via stdin:
+
+```bash
+logscope --file /var/log/syslog "Any OOM events?"
+```
+
+`--file` and stdin can be combined — logscope concatenates them, file content first:
+
+```bash
+# Prepend a header file, then pipe the actual log
+cat header.txt | logscope --file app.log "Summarise errors"
+```
+
+Multiple files are not supported directly; use shell process substitution or `cat` to merge them first:
+
+```bash
+cat service-a.log service-b.log | logscope "Compare error rates"
+```
+
+Trim large files to the most recent lines or bytes before sending:
+
+```bash
+logscope --file app.log --last 1000 "What happened in the last 1000 lines?"
+logscope --file app.log --max-bytes 102400 "Anything critical?"
+```
+
+---
+
+## Piping Logs from a Remote Host via SSH
+
+logscope runs **locally** — the `gh` authentication lives on your machine. The log can come from anywhere as long as you pipe it to stdin.
+
+### Stream a remote file
+
+```bash
+ssh user@host "cat /var/log/app/error.log" | logscope "Why are there 500 errors?"
+```
+
+### Stream live systemd journal output
+
+```bash
+ssh user@host "journalctl -u myservice -n 500 --no-pager" | logscope "Any crash loops?"
+```
+
+### Stream from a container on a remote host
+
+```bash
+ssh user@host "docker logs --tail 200 my-container" | logscope "Summarise exceptions"
+```
+
+### Trim before sending (saves bandwidth)
+
+```bash
+ssh user@host "tail -n 500 /var/log/nginx/access.log" | logscope "Any unusual traffic?"
+```
+
+> **Note:** `gh auth login` must be completed on the machine where logscope runs (your local machine), not on the remote host. The SSH connection is only used to stream the log content.
+
+---
+
 ## Multi-Turn Session Model
 
 After logscope delivers its initial analysis it stays open for follow-up questions in the **same Copilot session** — the model retains the full log and conversation context.
@@ -138,7 +240,7 @@ A `logscope> ` prompt is printed to the terminal (stderr) after each response. T
 | Flag | Type | Description |
 |---|---|---|
 | `--file PATH` | string | Read log from a file instead of (or in addition to) stdin |
-| `--model TEXT` | string | Copilot model ID (e.g. `claude-sonnet-4-6`, `gpt-4o`) |
+| `--model TEXT` | string | Copilot model ID — see [Selecting a Model](#selecting-a-model) below |
 | `--context TEXT` | string | Path to a context markdown/text file (runbook, ops manual) |
 | `--max-context-bytes INTEGER` | int | Truncate the context file to this many bytes (default: 50 000) |
 | `--redact-pii` | flag | Enable PII detection via presidio + spaCy (`en_core_web_lg` required) |
@@ -168,7 +270,46 @@ A `logscope> ` prompt is printed to the terminal (stderr) after each response. T
 
 ---
 
-## Configuration
+## Selecting a Model
+
+### Default model
+
+The default model is set in the config file:
+
+```toml
+model = "claude-sonnet-4-6"
+```
+
+Override it per-run with the `--model` flag:
+
+```bash
+cat app.log | logscope --model gpt-4o "Summarise errors"
+```
+
+Or change the default permanently:
+
+```bash
+logscope config edit   # opens ~/.config/logscope/config.toml in $EDITOR
+```
+
+### Available model IDs
+
+GitHub Copilot exposes several models. The IDs to use with `--model` are:
+
+| Model ID | Description |
+|---|---|
+| `claude-sonnet-4-6` | Anthropic Claude Sonnet — default, strong reasoning |
+| `claude-opus-4-6` | Anthropic Claude Opus — more capable, slower |
+| `gpt-4o` | OpenAI GPT-4o — fast, broad knowledge |
+| `gpt-4.1` | OpenAI GPT-4.1 — latest GPT-4 variant |
+
+> **Note:** Model availability depends on your Copilot plan (Individual / Business / Enterprise). If you pass an unsupported model ID the Copilot API will return an error and logscope will exit with code `1`.
+
+### Shell completions for `--model`
+
+If you have [shell completions](#shell-completions) enabled, pressing **Tab** after `--model ` will offer the known model IDs.
+
+---
 
 ### File location
 
