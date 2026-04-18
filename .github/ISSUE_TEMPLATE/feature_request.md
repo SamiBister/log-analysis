@@ -1,24 +1,30 @@
 ---
 name: Feature request
-about: Suggest an idea or enhancement
-title: '[Feature] '
+about: Suggest an improvement or new capability
+title: 'feat: '
 labels: enhancement
-assignees: ''
+assignees: SamiBister
 ---
 
 ## Problem statement
 
-<!-- Is your feature request related to a problem? Describe it. -->
-<!-- e.g. I'm always frustrated when... -->
+<!-- What limitation or gap is this addressing?
+     e.g. "There is no way to redact IPv6 addresses" -->
 
 ## Proposed solution
 
-<!-- A clear and concise description of what you want to happen. -->
+<!-- Describe what you want logscope to do.
+     Include example CLI usage if relevant. -->
+
+```bash
+# example
+cat app.log | logscope --your-new-flag "question"
+```
 
 ## Alternatives considered
 
-<!-- A clear and concise description of any alternative solutions or features you've considered. -->
+<!-- Have you worked around this? What other approaches did you consider? -->
 
 ## Additional context
 
-<!-- Add any other context, mockups, or screenshots about the feature request here. -->
+<!-- Any other context, links, or mockups. -->

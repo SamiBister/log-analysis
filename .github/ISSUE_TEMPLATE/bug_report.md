@@ -1,34 +1,50 @@
 ---
 name: Bug report
-about: Create a report to help us improve
-title: '[Bug] '
+about: Something is not working as expected
+title: 'bug: '
 labels: bug
-assignees: ''
+assignees: SamiBister
 ---
 
 ## Describe the bug
 
-<!-- A clear and concise description of what the bug is. -->
+<!-- A clear and concise description of what is broken. -->
 
-## Steps to reproduce
+## Command used
 
-1. Go to '...'
-2. Run '...'
-3. See error
+```bash
+# Paste the exact command you ran
+cat ... | logscope ...
+```
 
 ## Expected behavior
 
-<!-- A clear and concise description of what you expected to happen. -->
+<!-- What did you expect to happen? -->
 
 ## Actual behavior
 
-<!-- What actually happened, including any error messages or stack traces. -->
+<!-- What actually happened? Include the full error output. -->
+
+```
+# paste error / output here
+```
 
 ## Environment
 
-- OS: <!-- e.g. macOS 14.0, Ubuntu 22.04, Windows 11 -->
-- Version/Commit: <!-- e.g. v1.2.3 or git SHA -->
+- OS: <!-- e.g. macOS 15, Ubuntu 24.04 -->
+- Python version: <!-- python --version -->
+- logscope version: <!-- logscope --version -->
+- Install method: <!-- uv tool install / uv sync / other -->
+- gh auth status: <!-- paste output of: gh auth status -->
+
+## Redaction flags used
+
+<!-- Which of these were active? -->
+- [ ] `--redact-pii`
+- [ ] `--redact-hosts`
+- [ ] `--redact-ips`
+- [ ] `--no-redact`
 
 ## Additional context
 
-<!-- Add any other context, logs, or screenshots about the problem here. -->
+<!-- Any other relevant details, logs, or context. -->
