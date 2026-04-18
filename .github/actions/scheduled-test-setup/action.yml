@@ -14,9 +14,17 @@ runs:
       # This avoids the curl|sh installer script which fetches from an unpinned main branch.
       shell: bash
       run: |
-        curl -sSfL -o /tmp/grype.tar.gz \
-          "https://github.com/anchore/grype/releases/download/v0.109.0/grype_0.109.0_linux_amd64.tar.gz"
-        echo "c06e79287aa4d7343d7937571cf33154b560cbe483c6897369c53e2970fae647  /tmp/grype.tar.gz" \
-          | sha256sum -c -
+        URL="https://github.com/anchore/grype/releases/download/v0.109.0/grype_0.109.0_linux_amd64.tar.gz"
+        CHECKSUM="c06e79287aa4d7343d7937571cf33154b560cbe483c6897369c53e2970fae647"
+        ATTEMPT=0
+        until [ "${ATTEMPT}" -ge 3 ]; do
+          ATTEMPT=$((ATTEMPT + 1))
+          curl -sSfL --retry 3 --retry-delay 5 --retry-connrefused \
+            -o /tmp/grype.tar.gz "${URL}" && break
+          [ "${ATTEMPT}" -ge 3 ] && { echo "::error::Failed to download grype after 3 attempts."; exit 1; }
+          echo "Download failed, retrying in 10s..."
+          sleep 10
+        done
+        echo "${CHECKSUM}  /tmp/grype.tar.gz" | sha256sum -c -
         tar -xzf /tmp/grype.tar.gz -C /usr/local/bin grype
         rm /tmp/grype.tar.gz
