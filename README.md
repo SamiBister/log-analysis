@@ -2,6 +2,10 @@
 
 **Pipe any log file to GitHub Copilot for instant AI-powered analysis, with built-in redaction of secrets, PII, and hostnames.**
 
+[![CI](https://github.com/SamiBister/log-analysis/actions/workflows/ci.yml/badge.svg)](https://github.com/SamiBister/log-analysis/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/SamiBister/log-analysis/graph/badge.svg)](https://codecov.io/gh/SamiBister/log-analysis)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 ---
 
 ## Table of Contents

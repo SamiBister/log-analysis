@@ -82,8 +82,14 @@ jobs:
       - uses: ./.github/actions/setup-uv
       - name: Install dependencies
         run: uv sync --frozen --extra dev
-      - name: Run tests
-        run: uv run pytest --cov=src/logscope --cov-fail-under=90
+      - name: Run tests with coverage
+        run: uv run pytest --cov=src/logscope --cov-fail-under=90 --cov-report=xml --cov-report=term-missing
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   # ─────────────────────────────────────────────────────────────────────────
   # 3. Vulnerability scan — after all quality gates pass
