@@ -63,10 +63,42 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4.2.2
       - uses: ./.github/actions/setup-uv
+      - name: Install dev dependencies
+        run: uv sync --frozen --extra dev
       - name: Run ruff check
-        run: uvx ruff check .
+        shell: bash
+        run: |
+          set +e
+          uv run ruff check . 2>&1 | tee /tmp/ruff-check.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Ruff Lint" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "All checks passed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ruff-check.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - name: Run ruff format check
-        run: uvx ruff format --check .
+        shell: bash
+        run: |
+          set +e
+          uv run ruff format --check . 2>&1 | tee /tmp/ruff-format.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Ruff Format" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "All files correctly formatted." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ruff-format.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
   test:
     name: Test
@@ -77,8 +109,24 @@ jobs:
       - uses: ./.github/actions/setup-uv
       - name: Install dependencies
         run: uv sync --frozen --extra dev
-      - name: Run tests
-        run: uv run pytest --cov=src/logscope --cov-fail-under=90
+      - name: Run tests with coverage
+        shell: bash
+        run: |
+          set +e
+          uv run pytest --cov=src/logscope --cov-fail-under=90 --cov-report=xml --cov-report=term-missing 2>&1 | tee /tmp/pytest-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -20 /tmp/pytest-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit ${EXIT_CODE}
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
 
   # ─────────────────────────────────────────────────────────────────────────
   # 3. Vulnerability scan

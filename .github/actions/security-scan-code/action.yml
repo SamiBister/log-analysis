@@ -16,9 +16,49 @@ runs:
       working-directory: ${{ inputs.directory }}
       run: |
         syft . -o json > sbom.json
+        COMPONENT_COUNT=$(python3 -c "import json,sys; d=json.load(open('sbom.json')); print(len(d.get('artifacts', [])))" 2>/dev/null || echo "unknown")
+        echo "## Syft SBOM" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Scan path | \`${{ inputs.directory }}\` |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Components found | ${COMPONENT_COUNT} |" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Run Security Scan with Grype
       working-directory: ${{ inputs.directory }}
       shell: bash
       run: |
-        grype sbom:sbom.json --only-fixed --fail-on ${{ inputs.fail-on-severity }}
+        set +e
+        grype sbom:sbom.json --only-fixed --fail-on ${{ inputs.fail-on-severity }} 2>&1 | tee /tmp/grype-output.txt
+        EXIT_CODE=${PIPESTATUS[0]}
+        set -e
+
+        echo "## Grype Vulnerability Scan" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Setting | Value |" >> "$GITHUB_STEP_SUMMARY"
+        echo "|---------|-------|" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Fail on severity | \`${{ inputs.fail-on-severity }}\` |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| Only fixed | \`true\` |" >> "$GITHUB_STEP_SUMMARY"
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+
+        if [ "${EXIT_CODE}" -eq 0 ]; then
+          echo "No fixable vulnerabilities found at or above **${{ inputs.fail-on-severity }}** severity." >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "**Vulnerabilities detected at or above ${{ inputs.fail-on-severity }} severity.**" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "<details><summary>Grype output</summary>" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/grype-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "</details>" >> "$GITHUB_STEP_SUMMARY"
+          echo "::error::Grype found fixable vulnerabilities at or above ${{ inputs.fail-on-severity }} severity."
+          exit 1
+        fi
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: rm -f /tmp/grype-output.txt

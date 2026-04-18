@@ -71,9 +71,39 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --frozen --extra dev
       - name: Run ruff check
-        run: uv run ruff check .
+        shell: bash
+        run: |
+          set +e
+          uv run ruff check . 2>&1 | tee /tmp/ruff-check.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Ruff Lint" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "All checks passed." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ruff-check.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
       - name: Run ruff format check
-        run: uv run ruff format --check .
+        shell: bash
+        run: |
+          set +e
+          uv run ruff format --check . 2>&1 | tee /tmp/ruff-format.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Ruff Format" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${EXIT_CODE}" -eq 0 ]; then
+            echo "All files correctly formatted." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/ruff-format.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
 
   test:
     name: Test
@@ -85,7 +115,18 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --extra dev
       - name: Run tests with coverage
-        run: uv run pytest --cov=src/logscope --cov-fail-under=90 --cov-report=xml --cov-report=term-missing
+        shell: bash
+        run: |
+          set +e
+          uv run pytest --cov=src/logscope --cov-fail-under=90 --cov-report=xml --cov-report=term-missing 2>&1 | tee /tmp/pytest-output.txt
+          EXIT_CODE=${PIPESTATUS[0]}
+          set -e
+          echo "## Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          tail -20 /tmp/pytest-output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit ${EXIT_CODE}
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
