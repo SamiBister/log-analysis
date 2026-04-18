@@ -2,6 +2,13 @@
   "name": "main",
   "target": "branch",
   "enforcement": "active",
+  "bypass_actors": [
+    {
+      "actor_id": 1,
+      "actor_type": "RepositoryRole",
+      "bypass_mode": "always"
+    }
+  ],
   "conditions": {
     "ref_name": {
       "include": ["refs/heads/main"],
@@ -9,21 +16,15 @@
     }
   },
   "rules": [
-    {
-      "type": "deletion"
-    },
-    {
-      "type": "non_fast_forward"
-    },
-    {
-      "type": "required_linear_history"
-    },
+    { "type": "deletion" },
+    { "type": "non_fast_forward" },
+    { "type": "required_linear_history" },
     {
       "type": "pull_request",
       "parameters": {
         "required_approving_review_count": 1,
         "dismiss_stale_reviews_on_push": true,
-        "require_code_owner_review": false,
+        "require_code_owner_review": true,
         "require_last_push_approval": true,
         "allowed_merge_methods": ["squash"]
       }
@@ -33,9 +34,12 @@
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          {
-            "context": "CI / ci"
-          }
+          { "context": "CI / Secret Scan (gitleaks)" },
+          { "context": "CI / Vulnerability Scan (pip-audit)" },
+          { "context": "CI / Supply Chain Scan (guarddog)" },
+          { "context": "CI / Lint" },
+          { "context": "CI / Test" },
+          { "context": "CI / Vulnerability Scan (Syft + Grype)" }
         ]
       }
     }
